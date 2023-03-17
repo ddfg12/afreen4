@@ -6,12 +6,15 @@ nltk.download('wordnet')
 # to stem words
 from nltk.stem import PorterStemmer
 
-# create an instance of class PorterStemmer
-
+# object/instance of class PorterStemmer()
+stemmer = PorterStemmer()
 
 # importing json lib
 import json
+
+# to store data into files
 import pickle
+
 import numpy as np
 
 words=[] #list of unique roots words in the data
@@ -21,7 +24,7 @@ pattern_word_tags_list = [] #list of the pair of (['words', 'of', 'the', 'senten
 # words to be ignored while creating Dataset
 ignore_words = ['?', '!',',','.', "'s", "'m"]
 
-# open the JSON file, load data from it.
+# opening JSON file, reading data from it, then closing it.
 train_data_file = open('intents.json')
 data = json.load(train_data_file)
 train_data_file.close()
@@ -30,19 +33,10 @@ train_data_file.close()
 def get_stem_words(words, ignore_words):
     stem_words = []
     for word in words:
-
-        # write stemming algorithm:
-        '''
-        Check if word is not a part of stop word:
-        1) lowercase it 
-        2) stem it
-        3) append it to stem_words list
-        4) return the list
-        ''' 
-        # Add code here #        
-
+        if word not in ignore_words:
+            w = stemmer.stem(word.lower())
+            stem_words.append(w)
     return stem_words
-
 
 '''
 List of sorted stem words for our dataset : 
@@ -55,42 +49,51 @@ List of sorted stem words for our dataset :
 
 '''
 
-
 # creating a function to make corpus
 def create_bot_corpus(words, classes, pattern_word_tags_list, ignore_words):
 
     for intent in data['intents']:
 
         # Add all patterns and tags to a list
-        for pattern in intent['patterns']:  
-
-            # tokenize the pattern          
-            pattern_words = nltk.word_tokenize(pattern)
-
-            # add the tokenized words to the words list        
-                          
-            # add the 'tokenized word list' along with the 'tag' to pattern_word_tags_list
-            
-            
+        for pattern in intent['patterns']:            
+            pattern_word = nltk.word_tokenize(pattern)            
+            words.extend(pattern_word)                        
+            pattern_word_tags_list.append((pattern_word, intent['tag']))
+              
+    
         # Add all tags to the classes list
         if intent['tag'] not in classes:
             classes.append(intent['tag'])
-
             
     stem_words = get_stem_words(words, ignore_words) 
-
-    # Remove duplicate words from stem_words
-
-    # sort the stem_words list and classes list
-
-    
-    # print stem_words
-    print('stem_words list : ' , stem_words)
+    stem_words = sorted(list(set(stem_words)))
+    print(stem_words)
+    classes = sorted(list(set(classes)))
 
     return stem_words, classes, pattern_word_tags_list
 
 
 # Training Dataset: 
+training_data=[]
+no_of_tags=len(classes)
+labels=[0]*no_of_tags
+for word_tag in pattern_word_tags_list:
+     bag_of_word=[]
+     pattern_word=word_tag[0]
+     for word in pattern_word:
+          index=pattern_word.index(word)
+          word=stemmer.stem(word.lowwer())
+          pattern_word[index]=word
+     for word in stem_words:
+          if word in pattern_word:
+           bag_of_word.append(1)
+          else:
+              bag_of_word.append(0)
+     labels_encoding = list(labels)
+     tag = word_tag[1]
+     tag_index = classes.index(tag)
+     labels_encoding[tag_index] = 1
+     training_data.append([bag_of_word,labels_encoding])
 # Input Text----> as Bag of Words 
 # Tags-----------> as Label
 
@@ -107,13 +110,12 @@ def bag_of_words_encoding(stem_words, pattern_word_tags_list):
         stemmed_pattern_word = get_stem_words(pattern_words, ignore_words)
 
         # Input data encoding 
-        '''
-        Write BOW algo :
-        1) take a word from stem_words list
-        2) check if that word is in stemmed_pattern_word
-        3) append 1 in BOW, otherwise append 0
-        '''
-        
+        for word in stem_words:            
+            if word in stemmed_pattern_word:              
+                bag_of_words.append(1)
+            else:
+                bag_of_words.append(0)
+    
         bag.append(bag_of_words)
     
     return np.array(bag)
@@ -124,7 +126,7 @@ def class_label_encoding(classes, pattern_word_tags_list):
 
     for word_tags in pattern_word_tags_list:
 
-        # Start with list of 0s 
+        # Start with list of 0s
         labels_encoding = list([0]*len(classes))  
 
         # example: word_tags = (['hi', 'there'], 'greetings']
@@ -145,7 +147,8 @@ def preprocess_train_data():
     stem_words, tag_classes, word_tags_list = create_bot_corpus(words, classes, pattern_word_tags_list, ignore_words)
     
     # Convert Stem words and Classes to Python pickel file format
-    
+    pickle.dump(stem_words, open('words.pkl','wb'))
+    pickle.dump(tag_classes, open('classes.pkl','wb'))
 
     train_x = bag_of_words_encoding(stem_words, word_tags_list)
     train_y = class_label_encoding(tag_classes, word_tags_list)
@@ -153,9 +156,7 @@ def preprocess_train_data():
     return train_x, train_y
 
 bow_data  , label_data = preprocess_train_data()
-
-# after completing the code, remove comment from print statements
-# print("first BOW encoding: " , bow_data[0])
-# print("first Label encoding: " , label_data[0])
+print("first BOW encoding: " , bow_data[0])
+print("first Label encoding: " , label_data[0])
 
 
